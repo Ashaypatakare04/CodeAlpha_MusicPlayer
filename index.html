@@ -1,0 +1,598 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Between the Frames — Digital Listening Archive | CodeAlpha Music Player</title>
+  <meta name="description" content="An editorial music player and digital album archive created for CodeAlpha Frontend Development Internship Task 4.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400;1,600&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <!-- Skip link for keyboard accessibility -->
+  <a href="#main-content" class="skip-link">Skip to audio player</a>
+
+  <!-- Audio element (HTML5 Audio API) -->
+  <audio id="audio-player" preload="metadata"></audio>
+
+  <!-- Site Header -->
+  <header class="site-header" role="banner">
+    <div class="header-inner container">
+      <div class="brand-group">
+        <a href="#" class="brand-logo" aria-label="Between the Frames Homepage">
+          <span class="brand-mark" aria-hidden="true">■</span>
+          <span class="brand-name">BETWEEN THE FRAMES</span>
+        </a>
+        <span class="brand-badge" aria-label="Archive Edition">VOL. IV · ARCHIVE SERIES</span>
+      </div>
+
+      <nav class="site-nav" aria-label="Primary Navigation">
+        <ul class="nav-links">
+          <li><a href="#player-section" class="nav-link active">Archive</a></li>
+          <li><a href="#playlist-section" class="nav-link">Catalogue</a></li>
+          <li><a href="#about-section" class="nav-link">About</a></li>
+        </ul>
+
+        <div class="header-actions">
+          <!-- Keyboard shortcuts helper button -->
+          <button id="shortcuts-btn" class="icon-btn" aria-label="Open keyboard shortcuts guide" title="Keyboard Shortcuts (?)">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <rect x="2" y="4" width="20" height="16" rx="2" ry="2"></rect>
+              <line x1="6" y1="8" x2="6.01" y2="8"></line>
+              <line x1="10" y1="8" x2="10.01" y2="8"></line>
+              <line x1="14" y1="8" x2="14.01" y2="8"></line>
+              <line x1="18" y1="8" x2="18.01" y2="8"></line>
+              <line x1="8" y1="12" x2="8.01" y2="12"></line>
+              <line x1="12" y1="12" x2="12.01" y2="12"></line>
+              <line x1="16" y1="12" x2="16.01" y2="12"></line>
+              <line x1="6" y1="16" x2="18" y2="16"></line>
+            </svg>
+          </button>
+
+          <!-- Theme toggle -->
+          <button id="theme-toggle-btn" class="icon-btn theme-toggle" aria-label="Toggle dark/light theme" title="Switch Theme">
+            <svg class="icon sun-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <circle cx="12" cy="12" r="5"></circle>
+              <line x1="12" y1="1" x2="12" y2="3"></line>
+              <line x1="12" y1="21" x2="12" y2="23"></line>
+              <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+              <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+              <line x1="1" y1="12" x2="3" y2="12"></line>
+              <line x1="21" y1="12" x2="23" y2="12"></line>
+              <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+              <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+            </svg>
+            <svg class="icon moon-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+            </svg>
+          </button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <main id="main-content" class="main-content container">
+
+    <!-- Hero / Editorial Introduction -->
+    <section class="hero-section" aria-labelledby="hero-title">
+      <div class="hero-header">
+        <span class="editorial-label">LISTENING ARCHIVE · CODEALPHA TASK 4</span>
+        <h1 id="hero-title" class="hero-title">Music for moments between the frames.</h1>
+        <p class="hero-description">
+          An intentional acoustic sanctuary curated for contemplation and focus. Exploring minimalist piano, ambient resonance, and cinematic stillness preserved in high-fidelity digital format.
+        </p>
+      </div>
+
+      <div class="hero-meta-bar" role="region" aria-label="Archive metadata">
+        <div class="meta-item">
+          <span class="meta-label">CATALOGUE</span>
+          <span class="meta-value" id="archive-count">06 Selections</span>
+        </div>
+        <div class="meta-divider" aria-hidden="true">/</div>
+        <div class="meta-item">
+          <span class="meta-label">FORMAT</span>
+          <span class="meta-value">MPEG-1 Layer III · 44.1kHz</span>
+        </div>
+        <div class="meta-divider" aria-hidden="true">/</div>
+        <div class="meta-item">
+          <span class="meta-label">CURATION</span>
+          <span class="meta-value">Editorial Ambient & Neo-Classical</span>
+        </div>
+        <div class="meta-divider" aria-hidden="true">/</div>
+        <div class="meta-item">
+          <span class="meta-label">STATUS</span>
+          <span class="meta-value" id="status-indicator">
+            <span class="pulse-dot" aria-hidden="true"></span> System Ready
+          </span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Error / Info Notification Banner -->
+    <div id="notification-banner" class="notification-banner" role="status" aria-live="polite" hidden>
+      <span class="notification-icon" aria-hidden="true">ℹ</span>
+      <span id="notification-text" class="notification-text"></span>
+      <button id="notification-close" class="notification-close" aria-label="Dismiss message">✕</button>
+    </div>
+
+    <!-- Main Two-Column Editorial Player Area -->
+    <div class="editorial-grid" id="player-section">
+      
+      <!-- Left Column: Now Playing Showcase & Editorial Focus -->
+      <section class="now-playing-column" aria-labelledby="now-playing-label">
+        <div class="section-tag-bar">
+          <span class="editorial-label" id="now-playing-label">NOW PLAYING</span>
+          <span class="track-number-badge" id="display-track-index" aria-label="Current track index">01 / 06</span>
+        </div>
+
+        <!-- Album Artwork Frame -->
+        <div class="artwork-container">
+          <div class="artwork-frame">
+            <img 
+              id="album-cover" 
+              src="assets/images/afterglow.jpg" 
+              alt="Album cover for Afterglow by Aria Vale" 
+              class="artwork-img"
+              loading="eager"
+            >
+            <div class="artwork-overlay" aria-hidden="true">
+              <div class="vinyl-groove"></div>
+            </div>
+            <!-- Live Audio Visualizer Bars Overlay -->
+            <div class="live-visualizer" id="live-visualizer" aria-label="Soundwave animation" aria-hidden="true">
+              <span class="viz-bar"></span>
+              <span class="viz-bar"></span>
+              <span class="viz-bar"></span>
+              <span class="viz-bar"></span>
+              <span class="viz-bar"></span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Now Playing Track Metadata -->
+        <div class="track-details-editorial">
+          <div class="meta-supertitle">
+            <span class="editorial-label">TRACK</span>
+            <span class="year-badge" id="display-track-year">2026</span>
+          </div>
+          <h2 class="featured-track-title" id="display-track-title">Afterglow</h2>
+          
+          <div class="meta-row">
+            <div class="meta-col">
+              <span class="editorial-label">ARTIST</span>
+              <p class="track-artist-text" id="display-track-artist">Aria Vale</p>
+            </div>
+            <div class="meta-col">
+              <span class="editorial-label">ALBUM</span>
+              <p class="track-album-text" id="display-track-album">Between Light & Shadow</p>
+            </div>
+          </div>
+
+          <!-- Editorial Track Narrative Quote -->
+          <blockquote class="editorial-quote" id="display-track-desc">
+            "Warm golden sunset harmonics drifting through open concrete corridors. Soft analog tape resonance meeting gentle melodic architecture."
+          </blockquote>
+
+          <!-- In-Section Playback Controls & Progress Bar (Fully Functional In Editorial Frame) -->
+          <div class="deck-controls-container" role="region" aria-label="Primary Track Deck">
+            
+            <!-- Progress Bar -->
+            <div class="progress-block">
+              <div class="progress-labels">
+                <span class="time-label current-time" id="deck-current-time">00:00</span>
+                <span class="time-label total-duration" id="deck-total-duration">06:12</span>
+              </div>
+              <div class="progress-bar-wrapper">
+                <input 
+                  type="range" 
+                  id="deck-progress-bar" 
+                  class="progress-slider" 
+                  min="0" 
+                  max="100" 
+                  value="0" 
+                  step="0.1" 
+                  aria-label="Seek track position"
+                  aria-valuemin="0"
+                  aria-valuemax="100"
+                  aria-valuenow="0"
+                >
+                <div class="progress-fill" id="deck-progress-fill"></div>
+              </div>
+            </div>
+
+            <!-- Primary Deck Buttons -->
+            <div class="deck-buttons-row">
+              <button id="deck-shuffle-btn" class="control-btn-subtle" aria-label="Toggle shuffle mode" title="Shuffle (S)">
+                <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <polyline points="16 3 21 3 21 8"></polyline>
+                  <line x1="4" y1="20" x2="21" y2="3"></line>
+                  <polyline points="21 16 21 21 16 21"></polyline>
+                  <line x1="15" y1="15" x2="21" y2="21"></line>
+                  <line x1="4" y1="4" x2="9" y2="9"></line>
+                </svg>
+              </button>
+
+              <button id="deck-prev-btn" class="control-btn" aria-label="Previous track" title="Previous Track (←)">
+                <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <polygon points="19 20 9 12 19 4 19 20"></polygon>
+                  <line x1="5" y1="19" x2="5" y2="5"></line>
+                </svg>
+              </button>
+
+              <button id="deck-play-btn" class="control-btn play-main-btn" aria-label="Play or pause" title="Play / Pause (Space)">
+                <svg class="icon icon-play" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                  <polygon points="5 3 19 12 5 21 5 3"></polygon>
+                </svg>
+                <svg class="icon icon-pause" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" style="display: none;">
+                  <rect x="6" y="4" width="4" height="16"></rect>
+                  <rect x="14" y="4" width="4" height="16"></rect>
+                </svg>
+              </button>
+
+              <button id="deck-next-btn" class="control-btn" aria-label="Next track" title="Next Track (→)">
+                <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <polygon points="5 4 15 12 5 20 5 4"></polygon>
+                  <line x1="19" y1="5" x2="19" y2="19"></line>
+                </svg>
+              </button>
+
+              <button id="deck-repeat-btn" class="control-btn-subtle" aria-label="Cycle repeat mode" title="Repeat Mode (R)">
+                <svg class="icon icon-repeat" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <polyline points="17 1 21 5 17 9"></polyline>
+                  <path d="M3 11V9a4 4 0 0 1 4-4h14"></path>
+                  <polyline points="7 23 3 19 7 15"></polyline>
+                  <path d="M21 13v2a4 4 0 0 1-4 4H3"></path>
+                </svg>
+                <span class="repeat-badge" id="deck-repeat-badge" aria-hidden="true"></span>
+              </button>
+            </div>
+
+            <!-- Additional Deck Utility Actions -->
+            <div class="deck-utility-row">
+              <button id="add-track-trigger" class="editorial-text-btn" aria-label="Add local audio file">
+                <span aria-hidden="true">＋</span> Add Local Audio
+              </button>
+              <button id="copy-track-link-btn" class="editorial-text-btn" aria-label="Copy track details">
+                <span aria-hidden="true">↗</span> Share Track
+              </button>
+            </div>
+          </div>
+
+        </div>
+      </section>
+
+      <!-- Right Column: Editorial Playlist / Catalogue -->
+      <section class="catalogue-column" id="playlist-section" aria-labelledby="catalogue-heading">
+        <div class="catalogue-header">
+          <div class="catalogue-title-wrap">
+            <span class="editorial-label">CURATED SELECTION</span>
+            <h2 id="catalogue-heading" class="catalogue-title">Archival Catalogue</h2>
+          </div>
+          <div class="catalogue-stats">
+            <span class="badge-subtle" id="playlist-count-badge">6 Tracks</span>
+          </div>
+        </div>
+
+        <!-- Search and Filter Bar -->
+        <div class="catalogue-search-row">
+          <div class="search-input-wrapper">
+            <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <circle cx="11" cy="11" r="8"></circle>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+            </svg>
+            <input 
+              type="text" 
+              id="playlist-search" 
+              class="search-input" 
+              placeholder="Search by title, artist, or album..." 
+              aria-label="Filter playlist tracks"
+            >
+            <button id="search-clear-btn" class="search-clear-btn" aria-label="Clear search input" hidden>✕</button>
+          </div>
+
+          <div class="filter-chips-wrapper" role="radiogroup" aria-label="Filter playlist categories">
+            <button class="chip-btn active" data-filter="all" role="radio" aria-checked="true">All</button>
+            <button class="chip-btn" data-filter="ambient" role="radio" aria-checked="false">Ambient</button>
+            <button class="chip-btn" data-filter="acoustic" role="radio" aria-checked="false">Acoustic</button>
+            <button class="chip-btn" data-filter="cinematic" role="radio" aria-checked="false">Cinematic</button>
+          </div>
+        </div>
+
+        <!-- Playlist Track List Table / Container -->
+        <div class="playlist-container" role="region" aria-label="Playlist">
+          <div class="playlist-table-head" aria-hidden="true">
+            <span class="col-head num">#</span>
+            <span class="col-head title">TITLE & ARTIST</span>
+            <span class="col-head album">ALBUM</span>
+            <span class="col-head time">DURATION</span>
+          </div>
+
+          <ol class="playlist-items-list" id="playlist-items-list" role="list">
+            <!-- Playlist items injected dynamically via script.js -->
+          </ol>
+        </div>
+
+        <!-- Local File Ingestion Dropzone Note -->
+        <div class="local-dropzone" id="local-dropzone" tabindex="0" role="button" aria-label="Drop local audio files here or click to browse">
+          <input type="file" id="local-file-input" accept="audio/*" multiple hidden>
+          <div class="dropzone-content">
+            <span class="dropzone-icon" aria-hidden="true">☊</span>
+            <p class="dropzone-title">Add your personal audio files to the archive</p>
+            <p class="dropzone-subtitle">Click to select MP3, WAV, or OGG files from your system, or drag them here</p>
+          </div>
+        </div>
+
+      </section>
+
+    </div>
+
+    <!-- About Section -->
+    <section class="about-section" id="about-section" aria-labelledby="about-title">
+      <div class="about-card">
+        <span class="editorial-label">ABOUT THE ARCHIVE</span>
+        <h2 id="about-title" class="about-heading">Between the Frames · Digital Listening Archive</h2>
+        
+        <div class="about-body">
+          <p>
+            <strong>Between the Frames</strong> is an original digital listening archive and editorial music player conceived and developed as part of the <strong>CodeAlpha Frontend Development Internship (Task 4 — Music Player)</strong>. Rejecting conventional commercial streaming layouts characterized by cluttered dashboards, neon aesthetics, and algorithmic noise, this project envisions music through the lens of independent print publications and fine art catalogues.
+          </p>
+          <p>
+            Engineered exclusively with semantic <strong>HTML5</strong>, responsive <strong>CSS3</strong> with modular design tokens, and clean <strong>Vanilla JavaScript</strong> powering the native <strong>HTML5 Audio API</strong>, the application delivers uninterrupted real-time audio playback, interactive scrubbable seeking, fluid volume ramping with memory-state mute, dynamic playlist synchronization, and full keyboard accessibility.
+          </p>
+        </div>
+
+        <div class="about-features-grid">
+          <div class="feature-card">
+            <span class="feature-num">01</span>
+            <h3 class="feature-title">Native HTML5 Audio Engine</h3>
+            <p class="feature-desc">Engineered around native browser audio events without bloated third-party wrappers, ensuring immediate load times and uncompromised audio fidelity.</p>
+          </div>
+          <div class="feature-card">
+            <span class="feature-num">02</span>
+            <h3 class="feature-title">Editorial Design Tokens</h3>
+            <p class="feature-desc">Dual warm palettes in light and dark modes with Cormorant Garamond serif headings, Plus Jakarta Sans controls, and intentional whitespace.</p>
+          </div>
+          <div class="feature-card">
+            <span class="feature-num">03</span>
+            <h3 class="feature-title">Complete Keyboard Navigation</h3>
+            <p class="feature-desc">Accessible hotkeys for playback, seeking, track skipping, volume graduation, and mode toggles designed for rapid, seamless interaction.</p>
+          </div>
+          <div class="feature-card">
+            <span class="feature-num">04</span>
+            <h3 class="feature-title">Local Audio Extensibility</h3>
+            <p class="feature-desc">Seamless drag-and-drop or file selection to inject your own local MP3s into the catalogue with automated duration reading and metadata extraction.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Persistent Bottom Music Control Bar -->
+  <aside class="persistent-bar" role="complementary" aria-label="Persistent Audio Player Bar">
+    <div class="persistent-inner container">
+
+      <!-- Left: Mini Track Info -->
+      <div class="bar-track-info">
+        <div class="bar-thumbnail-frame">
+          <img 
+            id="bar-thumbnail" 
+            src="assets/images/afterglow.jpg" 
+            alt="Current track thumbnail" 
+            class="bar-thumbnail-img"
+          >
+        </div>
+        <div class="bar-text-group">
+          <span class="bar-track-title" id="bar-title">Afterglow</span>
+          <span class="bar-track-artist" id="bar-artist">Aria Vale</span>
+        </div>
+      </div>
+
+      <!-- Center: Full Controls & Scrubbable Progress Bar -->
+      <div class="bar-controls-group">
+        <div class="bar-buttons-row">
+          <button id="bar-shuffle-btn" class="bar-icon-btn" aria-label="Toggle shuffle mode" title="Shuffle (S)">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <polyline points="16 3 21 3 21 8"></polyline>
+              <line x1="4" y1="20" x2="21" y2="3"></line>
+              <polyline points="21 16 21 21 16 21"></polyline>
+              <line x1="15" y1="15" x2="21" y2="21"></line>
+              <line x1="4" y1="4" x2="9" y2="9"></line>
+            </svg>
+          </button>
+
+          <button id="bar-prev-btn" class="bar-icon-btn" aria-label="Previous track" title="Previous Track (←)">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <polygon points="19 20 9 12 19 4 19 20"></polygon>
+              <line x1="5" y1="19" x2="5" y2="5"></line>
+            </svg>
+          </button>
+
+          <button id="bar-play-btn" class="bar-play-main-btn" aria-label="Play or pause" title="Play / Pause (Space)">
+            <svg class="icon icon-play" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+              <polygon points="5 3 19 12 5 21 5 3"></polygon>
+            </svg>
+            <svg class="icon icon-pause" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" style="display: none;">
+              <rect x="6" y="4" width="4" height="16"></rect>
+              <rect x="14" y="4" width="4" height="16"></rect>
+            </svg>
+          </button>
+
+          <button id="bar-next-btn" class="bar-icon-btn" aria-label="Next track" title="Next Track (→)">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <polygon points="5 4 15 12 5 20 5 4"></polygon>
+              <line x1="19" y1="5" x2="19" y2="19"></line>
+            </svg>
+          </button>
+
+          <button id="bar-repeat-btn" class="bar-icon-btn" aria-label="Cycle repeat mode" title="Repeat Mode (R)">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <polyline points="17 1 21 5 17 9"></polyline>
+              <path d="M3 11V9a4 4 0 0 1 4-4h14"></path>
+              <polyline points="7 23 3 19 7 15"></polyline>
+              <path d="M21 13v2a4 4 0 0 1-4 4H3"></path>
+            </svg>
+            <span class="repeat-badge" id="bar-repeat-badge" aria-hidden="true"></span>
+          </button>
+        </div>
+
+        <!-- Scrubbable Progress Bar -->
+        <div class="bar-progress-row">
+          <span class="bar-time current" id="bar-current-time">00:00</span>
+          <div class="progress-bar-wrapper">
+            <input 
+              type="range" 
+              id="bar-progress-slider" 
+              class="progress-slider" 
+              min="0" 
+              max="100" 
+              value="0" 
+              step="0.1" 
+              aria-label="Seek track position"
+              aria-valuemin="0"
+              aria-valuemax="100"
+              aria-valuenow="0"
+            >
+            <div class="progress-fill" id="bar-progress-fill"></div>
+          </div>
+          <span class="bar-time duration" id="bar-total-duration">06:12</span>
+        </div>
+      </div>
+
+      <!-- Right: Volume Slider & Options -->
+      <div class="bar-options-group">
+        
+        <!-- Volume Control -->
+        <div class="volume-control-wrapper">
+          <button id="mute-btn" class="bar-icon-btn" aria-label="Mute or unmute audio" title="Mute / Unmute (M)">
+            <svg class="icon icon-volume-high" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+              <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+            </svg>
+            <svg class="icon icon-volume-muted" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="display: none;">
+              <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+              <line x1="23" y1="9" x2="17" y2="15"></line>
+              <line x1="17" y1="9" x2="23" y2="15"></line>
+            </svg>
+          </button>
+          
+          <div class="volume-slider-wrapper">
+            <input 
+              type="range" 
+              id="volume-slider" 
+              class="volume-slider" 
+              min="0" 
+              max="100" 
+              value="80" 
+              step="1" 
+              aria-label="Volume slider"
+              aria-valuemin="0"
+              aria-valuemax="100"
+              aria-valuenow="80"
+            >
+            <div class="volume-fill" id="volume-fill" style="width: 80%;"></div>
+          </div>
+
+          <span class="volume-value-label" id="volume-value-text">80%</span>
+        </div>
+
+        <!-- Autoplay Toggle -->
+        <button id="autoplay-toggle-btn" class="editorial-badge-btn" aria-pressed="true" title="Toggle automatic transition to next track">
+          <span class="badge-dot" aria-hidden="true"></span>
+          <span>AUTOPLAY</span>
+        </button>
+
+      </div>
+
+    </div>
+  </aside>
+
+  <!-- Keyboard Shortcuts Modal Dialog -->
+  <div id="shortcuts-modal" class="modal-backdrop" hidden role="dialog" aria-modal="true" aria-labelledby="shortcuts-modal-title">
+    <div class="modal-card">
+      <div class="modal-header">
+        <span class="editorial-label">NAVIGATION & CONTROLS</span>
+        <h3 id="shortcuts-modal-title" class="modal-title">Keyboard Shortcuts</h3>
+        <button id="modal-close-btn" class="modal-close-btn" aria-label="Close shortcuts dialog">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="shortcut-list">
+          <div class="shortcut-row">
+            <span class="shortcut-desc">Play / Pause</span>
+            <kbd class="key-cap">Space</kbd>
+          </div>
+          <div class="shortcut-row">
+            <span class="shortcut-desc">Next Track</span>
+            <kbd class="key-cap">Arrow Right (→)</kbd>
+          </div>
+          <div class="shortcut-row">
+            <span class="shortcut-desc">Previous Track</span>
+            <kbd class="key-cap">Arrow Left (←)</kbd>
+          </div>
+          <div class="shortcut-row">
+            <span class="shortcut-desc">Increase Volume (+5%)</span>
+            <kbd class="key-cap">Arrow Up (↑)</kbd>
+          </div>
+          <div class="shortcut-row">
+            <span class="shortcut-desc">Decrease Volume (-5%)</span>
+            <kbd class="key-cap">Arrow Down (↓)</kbd>
+          </div>
+          <div class="shortcut-row">
+            <span class="shortcut-desc">Mute / Restore Volume</span>
+            <kbd class="key-cap">M</kbd>
+          </div>
+          <div class="shortcut-row">
+            <span class="shortcut-desc">Cycle Repeat Mode</span>
+            <kbd class="key-cap">R</kbd>
+          </div>
+          <div class="shortcut-row">
+            <span class="shortcut-desc">Toggle Shuffle</span>
+            <kbd class="key-cap">S</kbd>
+          </div>
+          <div class="shortcut-row">
+            <span class="shortcut-desc">Close Modal Dialogs</span>
+            <kbd class="key-cap">Esc</kbd>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Site Footer -->
+  <footer class="site-footer" role="contentinfo">
+    <div class="footer-inner container">
+      <div class="footer-top-row">
+        <div class="footer-brand">
+          <span class="brand-name">BETWEEN THE FRAMES</span>
+          <p class="footer-tagline">"Music for the moments between everything else."</p>
+        </div>
+        <div class="footer-meta">
+          <span class="editorial-label">INTERNSHIP ASSIGNMENT</span>
+          <p class="footer-meta-text">CodeAlpha Frontend Development Internship</p>
+          <p class="footer-meta-sub">Task 4 — Music Player (Original Editorial Identity)</p>
+        </div>
+      </div>
+
+      <div class="footer-bottom-row">
+        <p class="copyright-text">
+          &copy; 2026 Between the Frames · Conceived & Crafted for CodeAlpha Internship.
+        </p>
+        <div class="footer-links">
+          <a href="https://github.com/Ashaypatakare04/CodeAlpha_MusicPlayer" target="_blank" rel="noopener noreferrer" class="footer-link">
+            GitHub Repository
+          </a>
+          <span class="footer-sep" aria-hidden="true">·</span>
+          <a href="#" class="footer-link">
+            Internship Portfolio
+          </a>
+        </div>
+      </div>
+    </div>
+  </footer>
+
+  <script src="script.js"></script>
+</body>
+</html>
