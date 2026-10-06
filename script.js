@@ -4,11 +4,12 @@
  * CodeAlpha Frontend Development Internship — Task 4
  * ==============================================================================
  * Architecture:
- * - HTML5 Audio Engine & State Controller
- * - Responsive Multi-Deck Synchronization (Deck + Persistent Bottom Bar)
- * - Dynamic Archival Playlist & Filter Engine
- * - Robust Error Handling & Local File Ingestion
- * - Comprehensive Keyboard Hotkeys & Media Session API
+ * - HTML5 Audio Engine & Reactive State Controller
+ * - Multi-Deck Synchronization (Deck Showcase + Persistent Bottom Dock)
+ * - Intelligent Unrepeated Shuffle & 3-Mode Repeat Cycle
+ * - Search & Genre Filter Engine with Cohesive Track Navigation
+ * - Local Audio File Ingestion with Asynchronous Metadata Duration Preload
+ * - Complete Keyboard Hotkeys, ARIA Accessibility & Native Audio Event Sync
  * ==============================================================================
  */
 
@@ -103,7 +104,8 @@ const state = {
   volume: 0.8,
   previousVolume: 0.8,
   isShuffle: false,
-  repeatMode: 'all', // 'off' | 'all' | 'one'
+  shuffleHistory: [], // Stack of played track indices in shuffle mode
+  repeatMode: 'all',  // 'off' | 'all' | 'one'
   autoplay: true,
   currentFilter: 'all',
   searchQuery: '',
@@ -144,6 +146,12 @@ const DOM = {
   deckRepeatBtn: document.getElementById('deck-repeat-btn'),
   deckRepeatBadge: document.getElementById('deck-repeat-badge'),
 
+  // Deck Volume Controls (Accessible Desktop & Mobile)
+  deckMuteBtn: document.getElementById('deck-mute-btn'),
+  deckVolumeSlider: document.getElementById('deck-volume-slider'),
+  deckVolumeFill: document.getElementById('deck-volume-fill'),
+  deckVolumeValueText: document.getElementById('deck-volume-value-text'),
+
   addTrackTrigger: document.getElementById('add-track-trigger'),
   copyTrackLinkBtn: document.getElementById('copy-track-link-btn'),
 
@@ -173,7 +181,7 @@ const DOM = {
   barProgressSlider: document.getElementById('bar-progress-slider'),
   barProgressFill: document.getElementById('bar-progress-fill'),
 
-  // Volume & Extras
+  // Bar Volume & Extras
   muteBtn: document.getElementById('mute-btn'),
   volumeSlider: document.getElementById('volume-slider'),
   volumeFill: document.getElementById('volume-fill'),
@@ -184,17 +192,57 @@ const DOM = {
   shortcutsBtn: document.getElementById('shortcuts-btn'),
   shortcutsModal: document.getElementById('shortcuts-modal'),
   modalCloseBtn: document.getElementById('modal-close-btn'),
-  themeToggleBtn: document.getElementById('theme-toggle-btn')
+  themeToggleBtn: document.getElementById('theme-toggle-btn'),
+  navLinks: document.querySelectorAll('.nav-link')
 };
 
 // ------------------------------------------------------------------------------
-// 4. Time Formatting Utility (mm:ss)
+// 4. Utility Functions
 // ------------------------------------------------------------------------------
+
+/**
+ * Formats time in seconds to mm:ss format.
+ */
 function formatTime(seconds) {
-  if (isNaN(seconds) || seconds < 0) return '00:00';
+  if (isNaN(seconds) || !isFinite(seconds) || seconds < 0) return '00:00';
   const mins = Math.floor(seconds / 60);
   const secs = Math.floor(seconds % 60);
   return `${mins < 10 ? '0' : ''}${mins}:${secs < 10 ? '0' : ''}${secs}`;
+}
+
+/**
+ * Escapes HTML characters for safe template rendering.
+ */
+function escapeHTML(str) {
+  if (!str) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
+/**
+ * Updates the hero status indicator.
+ */
+function updateStatus(label, type = 'ready') {
+  if (!DOM.statusIndicator) return;
+  let dotClass = 'pulse-dot';
+  if (type === 'active') dotClass = 'pulse-dot active';
+  if (type === 'waiting') dotClass = 'pulse-dot waiting';
+  if (type === 'notice') dotClass = 'pulse-dot notice';
+
+  DOM.statusIndicator.innerHTML = `<span class="${dotClass}" aria-hidden="true"></span> ${escapeHTML(label)}`;
+}
+
+/**
+ * Updates total archive selections counter in hero.
+ */
+function updateArchiveCount() {
+  if (!DOM.archiveCount) return;
+  const count = state.playlist.length;
+  DOM.archiveCount.textContent = `${count < 10 ? '0' : ''}${count} Selection${count === 1 ? '' : 's'}`;
 }
 
 // ------------------------------------------------------------------------------
@@ -202,7 +250,7 @@ function formatTime(seconds) {
 // ------------------------------------------------------------------------------
 
 /**
- * Loads a track by index from the current active playlist.
+ * Loads a track by index from the active playlist.
  */
 function loadTrack(index, autoPlayAfterLoad = false) {
   if (!state.playlist || state.playlist.length === 0) return;
@@ -234,6 +282,7 @@ function loadTrack(index, autoPlayAfterLoad = false) {
   DOM.deckCurrentTime.textContent = '00:00';
   DOM.deckTotalDuration.textContent = track.duration || '00:00';
   DOM.deckProgressBar.value = 0;
+  DOM.deckProgressBar.setAttribute('aria-valuenow', '0');
   DOM.deckProgressFill.style.width = '0%';
 
   // Update Persistent Bar View
@@ -244,6 +293,7 @@ function loadTrack(index, autoPlayAfterLoad = false) {
   DOM.barCurrentTime.textContent = '00:00';
   DOM.barTotalDuration.textContent = track.duration || '00:00';
   DOM.barProgressSlider.value = 0;
+  DOM.barProgressSlider.setAttribute('aria-valuenow', '0');
   DOM.barProgressFill.style.width = '0%';
 
   // Update Playlist active highlight
@@ -270,14 +320,15 @@ function playTrack() {
       .then(() => {
         state.isPlaying = true;
         syncPlayPauseUI(true);
+        updateStatus('Active Playback', 'active');
         hideNotification();
       })
       .catch((error) => {
         console.warn('Playback initiation error:', error);
         state.isPlaying = false;
         syncPlayPauseUI(false);
+        updateStatus('System Ready', 'ready');
 
-        // Friendly editorial notification if audio failed to load
         if (error.name !== 'AbortError') {
           showNotification(
             `Playback notice: Tap play or check that "${state.playlist[state.currentTrackIndex]?.title}" audio is accessible in assets/audio/.`
@@ -294,6 +345,7 @@ function pauseTrack() {
   DOM.audio.pause();
   state.isPlaying = false;
   syncPlayPauseUI(false);
+  updateStatus('Playback Paused', 'ready');
 }
 
 /**
@@ -309,32 +361,73 @@ function togglePlayPause() {
 
 /**
  * Advances to the next track.
+ * Respects active filters, search criteria, shuffle history, and repeat modes.
  */
 function nextTrack() {
   if (state.playlist.length === 0) return;
 
-  let nextIndex;
+  const filtered = getFilteredTracks();
+  const targetPool = filtered.length > 0 ? filtered : state.playlist.map((track, originalIndex) => ({ track, originalIndex }));
+
+  if (targetPool.length === 0) return;
+
+  // Single track case
+  if (targetPool.length === 1) {
+    if (state.repeatMode === 'off') {
+      pauseTrack();
+      DOM.audio.currentTime = 0;
+      updateProgressUI(0, DOM.audio.duration);
+      return;
+    }
+    loadTrack(targetPool[0].originalIndex, true);
+    return;
+  }
+
+  let nextOriginalIndex;
+
   if (state.isShuffle) {
-    if (state.playlist.length === 1) {
-      nextIndex = 0;
+    // Record current track in shuffle history before advancing
+    if (!state.shuffleHistory.includes(state.currentTrackIndex)) {
+      state.shuffleHistory.push(state.currentTrackIndex);
+    }
+
+    // Unplayed tracks within active target pool
+    const unplayed = targetPool.filter(item => !state.shuffleHistory.includes(item.originalIndex) && item.originalIndex !== state.currentTrackIndex);
+
+    if (unplayed.length > 0) {
+      const pick = unplayed[Math.floor(Math.random() * unplayed.length)];
+      nextOriginalIndex = pick.originalIndex;
     } else {
-      do {
-        nextIndex = Math.floor(Math.random() * state.playlist.length);
-      } while (nextIndex === state.currentTrackIndex);
+      // All tracks have been played: reset history and pick any other track
+      state.shuffleHistory = [state.currentTrackIndex];
+      const others = targetPool.filter(item => item.originalIndex !== state.currentTrackIndex);
+      const pick = others[Math.floor(Math.random() * others.length)];
+      nextOriginalIndex = pick.originalIndex;
     }
   } else {
-    nextIndex = state.currentTrackIndex + 1;
-    if (nextIndex >= state.playlist.length) {
-      if (state.repeatMode === 'off') {
-        pauseTrack();
-        DOM.audio.currentTime = 0;
-        return;
+    // Sequential navigation within target pool
+    const currentPoolIndex = targetPool.findIndex(item => item.originalIndex === state.currentTrackIndex);
+
+    if (currentPoolIndex === -1) {
+      // Current track is not in filtered pool; start at beginning of pool
+      nextOriginalIndex = targetPool[0].originalIndex;
+    } else {
+      const nextPoolIndex = currentPoolIndex + 1;
+      if (nextPoolIndex >= targetPool.length) {
+        if (state.repeatMode === 'off') {
+          pauseTrack();
+          DOM.audio.currentTime = 0;
+          updateProgressUI(0, DOM.audio.duration);
+          return;
+        }
+        nextOriginalIndex = targetPool[0].originalIndex;
+      } else {
+        nextOriginalIndex = targetPool[nextPoolIndex].originalIndex;
       }
-      nextIndex = 0;
     }
   }
 
-  loadTrack(nextIndex, true);
+  loadTrack(nextOriginalIndex, true);
 }
 
 /**
@@ -343,34 +436,50 @@ function nextTrack() {
 function previousTrack() {
   if (state.playlist.length === 0) return;
 
-  // If track has been playing for more than 3 seconds, restart current track
+  // If track has been playing for more than 3 seconds, rewind current track
   if (DOM.audio.currentTime > 3) {
     DOM.audio.currentTime = 0;
-    playTrack();
+    if (state.isPlaying) {
+      playTrack();
+    } else {
+      updateProgressUI(0, DOM.audio.duration);
+    }
     return;
   }
 
-  let prevIndex;
-  if (state.isShuffle) {
-    if (state.playlist.length === 1) {
-      prevIndex = 0;
-    } else {
-      do {
-        prevIndex = Math.floor(Math.random() * state.playlist.length);
-      } while (prevIndex === state.currentTrackIndex);
+  const filtered = getFilteredTracks();
+  const targetPool = filtered.length > 0 ? filtered : state.playlist.map((track, originalIndex) => ({ track, originalIndex }));
+
+  if (targetPool.length === 0) return;
+
+  let prevOriginalIndex;
+
+  if (state.isShuffle && state.shuffleHistory.length > 0) {
+    // Step back in shuffle history
+    prevOriginalIndex = state.shuffleHistory.pop();
+    if (prevOriginalIndex === state.currentTrackIndex && state.shuffleHistory.length > 0) {
+      prevOriginalIndex = state.shuffleHistory.pop();
     }
   } else {
-    prevIndex = state.currentTrackIndex - 1;
-    if (prevIndex < 0) {
-      prevIndex = state.playlist.length - 1;
+    const currentPoolIndex = targetPool.findIndex(item => item.originalIndex === state.currentTrackIndex);
+
+    if (currentPoolIndex === -1) {
+      prevOriginalIndex = targetPool[targetPool.length - 1].originalIndex;
+    } else {
+      const prevPoolIndex = currentPoolIndex - 1;
+      if (prevPoolIndex < 0) {
+        prevOriginalIndex = targetPool[targetPool.length - 1].originalIndex;
+      } else {
+        prevOriginalIndex = targetPool[prevPoolIndex].originalIndex;
+      }
     }
   }
 
-  loadTrack(prevIndex, true);
+  loadTrack(prevOriginalIndex, true);
 }
 
 /**
- * Selects and plays a specific track by its playlist index.
+ * Selects and plays a specific track by its original playlist index.
  */
 function selectTrack(index) {
   if (index === state.currentTrackIndex) {
@@ -381,11 +490,12 @@ function selectTrack(index) {
 }
 
 /**
- * Seeks to a proportional point in the active audio track.
+ * Seeks to a proportional percentage in the active audio track.
  */
 function seekTrack(percentage) {
-  if (!DOM.audio.duration || isNaN(DOM.audio.duration)) return;
-  const targetTime = (percentage / 100) * DOM.audio.duration;
+  if (!DOM.audio.duration || isNaN(DOM.audio.duration) || !isFinite(DOM.audio.duration)) return;
+  const clamped = Math.max(0, Math.min(100, percentage));
+  const targetTime = (clamped / 100) * DOM.audio.duration;
   DOM.audio.currentTime = targetTime;
   updateProgressUI(targetTime, DOM.audio.duration);
 }
@@ -431,18 +541,19 @@ function syncPlayPauseUI(isPlaying) {
 }
 
 /**
- * Updates progress sliders and timestamps.
+ * Updates progress sliders, fills, and timestamps.
  */
 function updateProgressUI(currentTime, duration) {
-  if (isNaN(duration) || duration <= 0) return;
+  if (isNaN(duration) || !isFinite(duration) || duration <= 0) return;
 
-  const percentage = (currentTime / duration) * 100;
+  const percentage = Math.max(0, Math.min(100, (currentTime / duration) * 100));
   const timeFormatted = formatTime(currentTime);
   const durationFormatted = formatTime(duration);
 
   // Deck Progress
   if (!state.isDraggingSeek) {
     DOM.deckProgressBar.value = percentage;
+    DOM.deckProgressBar.setAttribute('aria-valuenow', percentage.toFixed(1));
     DOM.deckProgressFill.style.width = `${percentage}%`;
   }
   DOM.deckCurrentTime.textContent = timeFormatted;
@@ -451,10 +562,24 @@ function updateProgressUI(currentTime, duration) {
   // Bar Progress
   if (!state.isDraggingSeek) {
     DOM.barProgressSlider.value = percentage;
+    DOM.barProgressSlider.setAttribute('aria-valuenow', percentage.toFixed(1));
     DOM.barProgressFill.style.width = `${percentage}%`;
   }
   DOM.barCurrentTime.textContent = timeFormatted;
   DOM.barTotalDuration.textContent = durationFormatted;
+
+  // OS Media Session Position State
+  if ('mediaSession' in navigator && 'setPositionState' in navigator.mediaSession) {
+    try {
+      navigator.mediaSession.setPositionState({
+        duration: duration,
+        playbackRate: DOM.audio.playbackRate || 1,
+        position: Math.min(currentTime, duration)
+      });
+    } catch (e) {
+      // Ignored for environments where mediaSession position state is restricted
+    }
+  }
 }
 
 // ------------------------------------------------------------------------------
@@ -465,7 +590,7 @@ function updateProgressUI(currentTime, duration) {
  * Sets playback volume (0.0 to 1.0).
  */
 function setVolume(value) {
-  const vol = Math.max(0, Math.min(1, value));
+  const vol = Math.max(0, Math.min(1, Math.round(value * 100) / 100));
   state.volume = vol;
   DOM.audio.volume = vol;
 
@@ -495,26 +620,51 @@ function toggleMute() {
 }
 
 /**
- * Synchronizes volume slider and icon presentation.
+ * Synchronizes volume sliders, fill bars, and icons across Deck & Persistent Bar.
  */
 function syncVolumeUI() {
   const percent = Math.round((state.isMuted ? 0 : DOM.audio.volume) * 100);
 
+  // Persistent Bar Volume
   DOM.volumeSlider.value = percent;
+  DOM.volumeSlider.setAttribute('aria-valuenow', percent);
   DOM.volumeFill.style.width = `${percent}%`;
   DOM.volumeValueText.textContent = `${percent}%`;
 
-  const highIcon = DOM.muteBtn.querySelector('.icon-volume-high');
-  const muteIcon = DOM.muteBtn.querySelector('.icon-volume-muted');
+  // Deck Volume (if available)
+  if (DOM.deckVolumeSlider) {
+    DOM.deckVolumeSlider.value = percent;
+    DOM.deckVolumeSlider.setAttribute('aria-valuenow', percent);
+    DOM.deckVolumeFill.style.width = `${percent}%`;
+    DOM.deckVolumeValueText.textContent = `${percent}%`;
+  }
 
+  // Update Mute Icons (Bar)
+  const barHighIcon = DOM.muteBtn.querySelector('.icon-volume-high');
+  const barMuteIcon = DOM.muteBtn.querySelector('.icon-volume-muted');
   if (state.isMuted || percent === 0) {
-    if (highIcon) highIcon.style.display = 'none';
-    if (muteIcon) muteIcon.style.display = 'block';
+    if (barHighIcon) barHighIcon.style.display = 'none';
+    if (barMuteIcon) barMuteIcon.style.display = 'block';
     DOM.muteBtn.setAttribute('aria-label', 'Unmute audio');
   } else {
-    if (highIcon) highIcon.style.display = 'block';
-    if (muteIcon) muteIcon.style.display = 'none';
+    if (barHighIcon) barHighIcon.style.display = 'block';
+    if (barMuteIcon) barMuteIcon.style.display = 'none';
     DOM.muteBtn.setAttribute('aria-label', 'Mute audio');
+  }
+
+  // Update Mute Icons (Deck)
+  if (DOM.deckMuteBtn) {
+    const deckHighIcon = DOM.deckMuteBtn.querySelector('.icon-volume-high');
+    const deckMuteIcon = DOM.deckMuteBtn.querySelector('.icon-volume-muted');
+    if (state.isMuted || percent === 0) {
+      if (deckHighIcon) deckHighIcon.style.display = 'none';
+      if (deckMuteIcon) deckMuteIcon.style.display = 'block';
+      DOM.deckMuteBtn.setAttribute('aria-label', 'Unmute audio');
+    } else {
+      if (deckHighIcon) deckHighIcon.style.display = 'block';
+      if (deckMuteIcon) deckMuteIcon.style.display = 'none';
+      DOM.deckMuteBtn.setAttribute('aria-label', 'Mute audio');
+    }
   }
 }
 
@@ -527,6 +677,7 @@ function syncVolumeUI() {
  */
 function toggleShuffle() {
   state.isShuffle = !state.isShuffle;
+  state.shuffleHistory = [];
 
   DOM.deckShuffleBtn.classList.toggle('active', state.isShuffle);
   DOM.barShuffleBtn.classList.toggle('active', state.isShuffle);
@@ -553,10 +704,9 @@ function toggleRepeat() {
 }
 
 /**
- * Updates repeat buttons visual states and badges.
+ * Updates repeat buttons visual states, tooltips, and badges.
  */
 function syncRepeatUI() {
-  const isAll = state.repeatMode === 'all';
   const isOne = state.repeatMode === 'one';
   const isOff = state.repeatMode === 'off';
 
@@ -573,6 +723,8 @@ function syncRepeatUI() {
 
   DOM.deckRepeatBtn.setAttribute('title', `Repeat Mode: ${modeLabel} (R)`);
   DOM.barRepeatBtn.setAttribute('title', `Repeat Mode: ${modeLabel} (R)`);
+  DOM.deckRepeatBtn.setAttribute('aria-label', `Repeat mode: ${modeLabel}`);
+  DOM.barRepeatBtn.setAttribute('aria-label', `Repeat mode: ${modeLabel}`);
 
   showNotification(`Repeat mode set to: ${modeLabel}`);
 }
@@ -583,6 +735,7 @@ function syncRepeatUI() {
 function toggleAutoplay() {
   state.autoplay = !state.autoplay;
   DOM.autoplayToggleBtn.setAttribute('aria-pressed', state.autoplay ? 'true' : 'false');
+  DOM.autoplayToggleBtn.setAttribute('title', `Autoplay: ${state.autoplay ? 'Enabled' : 'Disabled'}`);
   showNotification(`Autoplay ${state.autoplay ? 'enabled' : 'disabled'}`);
 }
 
@@ -595,18 +748,19 @@ function toggleAutoplay() {
  */
 function getFilteredTracks() {
   const query = state.searchQuery.trim().toLowerCase();
-  const filter = state.currentFilter;
+  const filter = state.currentFilter.toLowerCase();
 
   return state.playlist.map((track, originalIndex) => ({ track, originalIndex }))
     .filter(({ track }) => {
       // Category filter
-      const matchesCategory = (filter === 'all') || (track.category === filter);
+      const trackCategory = (track.category || '').toLowerCase();
+      const matchesCategory = (filter === 'all') || (trackCategory === filter);
 
       // Search filter
       const matchesSearch = query === '' ||
-        track.title.toLowerCase().includes(query) ||
-        track.artist.toLowerCase().includes(query) ||
-        track.album.toLowerCase().includes(query);
+        (track.title && track.title.toLowerCase().includes(query)) ||
+        (track.artist && track.artist.toLowerCase().includes(query)) ||
+        (track.album && track.album.toLowerCase().includes(query));
 
       return matchesCategory && matchesSearch;
     });
@@ -641,7 +795,7 @@ function renderPlaylist() {
     li.className = `playlist-item${isActive ? ' active' : ''}${isPlaying ? ' is-playing' : ''}`;
     li.setAttribute('role', 'listitem');
     li.setAttribute('tabindex', '0');
-    li.setAttribute('aria-label', `Track ${track.id}: ${track.title} by ${track.artist}`);
+    li.setAttribute('aria-label', `Track ${originalIndex + 1}: ${track.title} by ${track.artist}`);
 
     const indexNumberFormatted = (originalIndex + 1 < 10 ? '0' : '') + (originalIndex + 1);
 
@@ -658,7 +812,7 @@ function renderPlaylist() {
         <span class="track-row-title">${escapeHTML(track.title)}</span>
         <span class="track-row-artist">${escapeHTML(track.artist)}</span>
       </div>
-      <div class="track-row-album">${escapeHTML(track.album)}</div>
+      <div class="track-row-album">${escapeHTML(track.album || 'Archive Edition')}</div>
       <div class="track-row-duration">${escapeHTML(track.duration || '--:--')}</div>
     `;
 
@@ -671,6 +825,7 @@ function renderPlaylist() {
     li.addEventListener('keydown', (e) => {
       if (e.key === 'Enter' || e.key === ' ') {
         e.preventDefault();
+        e.stopPropagation();
         selectTrack(originalIndex);
       }
     });
@@ -679,30 +834,19 @@ function renderPlaylist() {
   });
 }
 
-/**
- * Escapes HTML characters for safe template rendering.
- */
-function escapeHTML(str) {
-  if (!str) return '';
-  return str
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#039;');
-}
-
 // ------------------------------------------------------------------------------
 // 10. Local File Ingestion & Drag-and-Drop
 // ------------------------------------------------------------------------------
 
 /**
- * Ingests audio files selected via input or drag-and-drop.
+ * Ingests audio files selected via file input or drag-and-drop.
+ * Asynchronously preloads duration metadata for instant catalogue integration.
  */
 function ingestLocalFiles(files) {
   if (!files || files.length === 0) return;
 
   let addedCount = 0;
+  const firstNewIndex = state.playlist.length;
 
   Array.from(files).forEach((file) => {
     if (file.type.startsWith('audio/') || file.name.match(/\.(mp3|wav|ogg|m4a|flac)$/i)) {
@@ -710,7 +854,7 @@ function ingestLocalFiles(files) {
       const cleanName = file.name.replace(/\.[^/.]+$/, "");
       const newIndex = state.playlist.length + 1;
 
-      // Extract title and artist guess from filename (e.g. "Artist - Song")
+      // Extract title and artist guess from filename
       let title = cleanName;
       let artist = 'Local Audio';
       if (cleanName.includes(' - ')) {
@@ -719,18 +863,39 @@ function ingestLocalFiles(files) {
         title = parts.slice(1).join(' - ').trim();
       }
 
+      // Rotate through archival cover images for visual variety
+      const coverOptions = [
+        'assets/images/afterglow.jpg',
+        'assets/images/quiet-hours.jpg',
+        'assets/images/after-rain.jpg',
+        'assets/images/subtle-drift.jpg',
+        'assets/images/memory-grain.jpg',
+        'assets/images/golden-hour.jpg'
+      ];
+      const selectedCover = coverOptions[(newIndex - 1) % coverOptions.length];
+
       const newTrack = {
         id: newIndex,
         title: title,
         artist: artist,
-        album: 'Personal Collection',
+        album: 'Personal Archive',
         year: new Date().getFullYear().toString(),
         duration: '--:--',
         category: 'ambient',
         audio: audioUrl,
-        cover: 'assets/images/afterglow.jpg',
-        description: `Imported audio file: ${file.name} (${(file.size / (1024 * 1024)).toFixed(1)} MB)`
+        cover: selectedCover,
+        description: `Imported audio selection: ${file.name} (${(file.size / (1024 * 1024)).toFixed(1)} MB)`
       };
+
+      // Preload duration asynchronously with temporary audio element
+      const tempAudio = new Audio();
+      tempAudio.src = audioUrl;
+      tempAudio.addEventListener('loadedmetadata', () => {
+        if (!isNaN(tempAudio.duration) && tempAudio.duration > 0) {
+          newTrack.duration = formatTime(tempAudio.duration);
+          renderPlaylist();
+        }
+      });
 
       state.playlist.push(newTrack);
       addedCount++;
@@ -738,12 +903,23 @@ function ingestLocalFiles(files) {
   });
 
   if (addedCount > 0) {
-    DOM.archiveCount.textContent = `${(state.playlist.length < 10 ? '0' : '') + state.playlist.length} Selections`;
+    // Reset filters and search so new tracks appear immediately
+    state.currentFilter = 'all';
+    state.searchQuery = '';
+    DOM.playlistSearch.value = '';
+    DOM.searchClearBtn.hidden = true;
+    DOM.filterChips.forEach((chip) => {
+      const isAll = chip.getAttribute('data-filter') === 'all';
+      chip.classList.toggle('active', isAll);
+      chip.setAttribute('aria-checked', isAll ? 'true' : 'false');
+    });
+
+    updateArchiveCount();
     renderPlaylist();
     showNotification(`Successfully added ${addedCount} local audio selection${addedCount > 1 ? 's' : ''} to catalogue.`);
     
-    // Auto-select first added track
-    selectTrack(state.playlist.length - addedCount);
+    // Auto-select and play the first newly added track
+    selectTrack(firstNewIndex);
   } else {
     showNotification('Please select valid audio files (.mp3, .wav, .ogg, .m4a).');
   }
@@ -754,10 +930,32 @@ function ingestLocalFiles(files) {
 // ------------------------------------------------------------------------------
 
 /**
- * Initializes and toggles the theme.
+ * Reads saved theme safely with fallback.
+ */
+function getStoredTheme() {
+  try {
+    return localStorage.getItem('btf_theme');
+  } catch (e) {
+    return null;
+  }
+}
+
+/**
+ * Saves theme preference safely.
+ */
+function setStoredTheme(theme) {
+  try {
+    localStorage.setItem('btf_theme', theme);
+  } catch (e) {
+    // Storage quota or private browsing restriction
+  }
+}
+
+/**
+ * Initializes theme based on preference or system settings.
  */
 function initTheme() {
-  const savedTheme = localStorage.getItem('btf_theme');
+  const savedTheme = getStoredTheme();
   const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
   const initialTheme = savedTheme || (prefersDark ? 'dark' : 'light');
 
@@ -766,7 +964,12 @@ function initTheme() {
 
 function setTheme(theme) {
   document.documentElement.setAttribute('data-theme', theme);
-  localStorage.setItem('btf_theme', theme);
+  setStoredTheme(theme);
+  if (DOM.themeToggleBtn) {
+    const isDark = theme === 'dark';
+    DOM.themeToggleBtn.setAttribute('title', isDark ? 'Switch to Light Theme' : 'Switch to Dark Theme');
+    DOM.themeToggleBtn.setAttribute('aria-label', isDark ? 'Switch to Light Theme' : 'Switch to Dark Theme');
+  }
 }
 
 function toggleTheme() {
@@ -803,24 +1006,29 @@ function hideNotification() {
 // ------------------------------------------------------------------------------
 function updateMediaSession(track) {
   if ('mediaSession' in navigator) {
-    navigator.mediaSession.metadata = new MediaMetadata({
-      title: track.title,
-      artist: track.artist,
-      album: track.album,
-      artwork: [
-        { src: track.cover, sizes: '512x512', type: 'image/jpeg' }
-      ]
-    });
+    try {
+      navigator.mediaSession.metadata = new MediaMetadata({
+        title: track.title,
+        artist: track.artist,
+        album: track.album || 'Between the Frames',
+        artwork: [
+          { src: track.cover, sizes: '512x512', type: 'image/jpeg' }
+        ]
+      });
 
-    navigator.mediaSession.setActionHandler('play', () => playTrack());
-    navigator.mediaSession.setActionHandler('pause', () => pauseTrack());
-    navigator.mediaSession.setActionHandler('previoustrack', () => previousTrack());
-    navigator.mediaSession.setActionHandler('nexttrack', () => nextTrack());
-    navigator.mediaSession.setActionHandler('seekto', (details) => {
-      if (details.seekTime && DOM.audio.duration) {
-        DOM.audio.currentTime = details.seekTime;
-      }
-    });
+      navigator.mediaSession.setActionHandler('play', () => playTrack());
+      navigator.mediaSession.setActionHandler('pause', () => pauseTrack());
+      navigator.mediaSession.setActionHandler('previoustrack', () => previousTrack());
+      navigator.mediaSession.setActionHandler('nexttrack', () => nextTrack());
+      navigator.mediaSession.setActionHandler('seekto', (details) => {
+        if (details.seekTime !== undefined && DOM.audio.duration) {
+          DOM.audio.currentTime = details.seekTime;
+          updateProgressUI(details.seekTime, DOM.audio.duration);
+        }
+      });
+    } catch (e) {
+      console.warn('MediaSession initialization notice:', e);
+    }
   }
 }
 
@@ -831,7 +1039,7 @@ function bindEventListeners() {
 
   // --- HTML5 Audio Element Core Events ---
 
-  // When metadata loads, update duration display
+  // Metadata loaded
   DOM.audio.addEventListener('loadedmetadata', () => {
     const duration = DOM.audio.duration;
     if (!isNaN(duration) && duration > 0) {
@@ -864,7 +1072,38 @@ function bindEventListeners() {
     } else {
       pauseTrack();
       DOM.audio.currentTime = 0;
+      updateProgressUI(0, DOM.audio.duration);
     }
+  });
+
+  // Audio play event (syncs external/OS play events)
+  DOM.audio.addEventListener('play', () => {
+    state.isPlaying = true;
+    syncPlayPauseUI(true);
+    updateStatus('Active Playback', 'active');
+    if ('mediaSession' in navigator) {
+      navigator.mediaSession.playbackState = 'playing';
+    }
+  });
+
+  // Audio pause event (syncs external/OS pause events)
+  DOM.audio.addEventListener('pause', () => {
+    state.isPlaying = false;
+    syncPlayPauseUI(false);
+    updateStatus('Playback Paused', 'ready');
+    if ('mediaSession' in navigator) {
+      navigator.mediaSession.playbackState = 'paused';
+    }
+  });
+
+  // Audio waiting / buffering
+  DOM.audio.addEventListener('waiting', () => {
+    updateStatus('Buffering...', 'waiting');
+  });
+
+  // Audio playing resumed
+  DOM.audio.addEventListener('playing', () => {
+    updateStatus('Active Playback', 'active');
   });
 
   // Audio error handling
@@ -874,6 +1113,7 @@ function bindEventListeners() {
     showNotification(
       `Audio playback notice: Unable to decode "${track?.title}". Please verify audio file in assets/audio/ or load a local track.`
     );
+    updateStatus('Audio Notice', 'notice');
     syncPlayPauseUI(false);
   });
 
@@ -903,6 +1143,39 @@ function bindEventListeners() {
     seekTrack(parseFloat(e.target.value));
   });
 
+  // Wrapper click fallback for Deck progress
+  if (DOM.deckProgressBar.parentElement) {
+    DOM.deckProgressBar.parentElement.addEventListener('click', (e) => {
+      if (e.target !== DOM.deckProgressBar) {
+        const rect = e.currentTarget.getBoundingClientRect();
+        const percent = Math.max(0, Math.min(100, ((e.clientX - rect.left) / rect.width) * 100));
+        seekTrack(percent);
+      }
+    });
+  }
+
+  // Deck Volume Controls (if available)
+  if (DOM.deckVolumeSlider) {
+    DOM.deckVolumeSlider.addEventListener('input', (e) => {
+      const val = parseInt(e.target.value, 10);
+      setVolume(val / 100);
+    });
+
+    if (DOM.deckVolumeSlider.parentElement) {
+      DOM.deckVolumeSlider.parentElement.addEventListener('click', (e) => {
+        if (e.target !== DOM.deckVolumeSlider) {
+          const rect = e.currentTarget.getBoundingClientRect();
+          const percent = Math.max(0, Math.min(100, ((e.clientX - rect.left) / rect.width) * 100));
+          setVolume(percent / 100);
+        }
+      });
+    }
+  }
+
+  if (DOM.deckMuteBtn) {
+    DOM.deckMuteBtn.addEventListener('click', toggleMute);
+  }
+
   // --- Persistent Bar Controls ---
   DOM.barPlayBtn.addEventListener('click', togglePlayPause);
   DOM.barPrevBtn.addEventListener('click', previousTrack);
@@ -929,11 +1202,44 @@ function bindEventListeners() {
     seekTrack(parseFloat(e.target.value));
   });
 
+  // Wrapper click fallback for Bar progress
+  if (DOM.barProgressSlider.parentElement) {
+    DOM.barProgressSlider.parentElement.addEventListener('click', (e) => {
+      if (e.target !== DOM.barProgressSlider) {
+        const rect = e.currentTarget.getBoundingClientRect();
+        const percent = Math.max(0, Math.min(100, ((e.clientX - rect.left) / rect.width) * 100));
+        seekTrack(percent);
+      }
+    });
+  }
+
+  // Global window release ensures seek drag never locks up
+  window.addEventListener('pointerup', () => {
+    if (state.isDraggingSeek) {
+      state.isDraggingSeek = false;
+    }
+  });
+  window.addEventListener('touchend', () => {
+    if (state.isDraggingSeek) {
+      state.isDraggingSeek = false;
+    }
+  });
+
   // --- Volume Slider & Mute ---
   DOM.volumeSlider.addEventListener('input', (e) => {
     const val = parseInt(e.target.value, 10);
     setVolume(val / 100);
   });
+
+  if (DOM.volumeSlider.parentElement) {
+    DOM.volumeSlider.parentElement.addEventListener('click', (e) => {
+      if (e.target !== DOM.volumeSlider) {
+        const rect = e.currentTarget.getBoundingClientRect();
+        const percent = Math.max(0, Math.min(100, ((e.clientX - rect.left) / rect.width) * 100));
+        setVolume(percent / 100);
+      }
+    });
+  }
 
   DOM.muteBtn.addEventListener('click', toggleMute);
 
@@ -977,12 +1283,20 @@ function bindEventListeners() {
     DOM.localFileInput.click();
   });
 
+  // Keyboard accessibility for dropzone
+  DOM.localDropzone.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      DOM.localFileInput.click();
+    }
+  });
+
   DOM.localFileInput.addEventListener('change', (e) => {
     ingestLocalFiles(e.target.files);
     e.target.value = ''; // Reset input
   });
 
-  // Drag over effects
+  // Dropzone drag over feedback
   DOM.localDropzone.addEventListener('dragover', (e) => {
     e.preventDefault();
     DOM.localDropzone.classList.add('drag-over');
@@ -1000,18 +1314,32 @@ function bindEventListeners() {
     }
   });
 
+  // Window-level drag/drop safety to prevent browser navigating away on accidental drops
+  window.addEventListener('dragover', (e) => {
+    e.preventDefault();
+  });
+
+  window.addEventListener('drop', (e) => {
+    e.preventDefault();
+    if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      ingestLocalFiles(e.dataTransfer.files);
+    }
+  });
+
   // --- Share / Copy Track Link ---
   DOM.copyTrackLinkBtn.addEventListener('click', () => {
     const current = state.playlist[state.currentTrackIndex];
+    if (!current) return;
     const text = `Listening to "${current.title}" by ${current.artist} on Between the Frames (CodeAlpha Music Player)`;
-    if (navigator.clipboard) {
+    
+    if (navigator.clipboard && navigator.clipboard.writeText) {
       navigator.clipboard.writeText(text).then(() => {
         showNotification('Track reference copied to clipboard.');
       }).catch(() => {
-        showNotification(`Selected: ${current.title} by ${current.artist}`);
+        fallbackCopyText(text);
       });
     } else {
-      showNotification(`Selected: ${current.title} by ${current.artist}`);
+      fallbackCopyText(text);
     }
   });
 
@@ -1029,12 +1357,22 @@ function bindEventListeners() {
 
   DOM.modalCloseBtn.addEventListener('click', () => {
     DOM.shortcutsModal.setAttribute('hidden', '');
+    DOM.shortcutsBtn.focus();
   });
 
   DOM.shortcutsModal.addEventListener('click', (e) => {
     if (e.target === DOM.shortcutsModal) {
       DOM.shortcutsModal.setAttribute('hidden', '');
+      DOM.shortcutsBtn.focus();
     }
+  });
+
+  // Navigation Links smooth active highlight
+  DOM.navLinks.forEach((link) => {
+    link.addEventListener('click', () => {
+      DOM.navLinks.forEach(l => l.classList.remove('active'));
+      link.classList.add('active');
+    });
   });
 
   // --- Global Keyboard Controls ---
@@ -1042,9 +1380,31 @@ function bindEventListeners() {
 }
 
 /**
+ * Fallback clipboard copy using textarea element.
+ */
+function fallbackCopyText(text) {
+  try {
+    const textarea = document.createElement('textarea');
+    textarea.value = text;
+    textarea.style.position = 'fixed';
+    textarea.style.opacity = '0';
+    document.body.appendChild(textarea);
+    textarea.select();
+    document.execCommand('copy');
+    document.body.removeChild(textarea);
+    showNotification('Track reference copied to clipboard.');
+  } catch (e) {
+    const current = state.playlist[state.currentTrackIndex];
+    showNotification(`Selected: "${current.title}" by ${current.artist}`);
+  }
+}
+
+/**
  * Handles keyboard hotkeys when not inside text inputs.
  */
 function handleGlobalKeydown(e) {
+  if (e.defaultPrevented) return;
+
   const activeElement = document.activeElement;
   const isInput = activeElement && (
     activeElement.tagName === 'INPUT' ||
@@ -1052,8 +1412,22 @@ function handleGlobalKeydown(e) {
     activeElement.isContentEditable
   );
 
-  // Don't intercept when user is typing into input
-  if (isInput) return;
+  // When focused in search input, Escape clears the search
+  if (isInput) {
+    if (e.key === 'Escape' && activeElement === DOM.playlistSearch) {
+      DOM.playlistSearch.value = '';
+      state.searchQuery = '';
+      DOM.searchClearBtn.hidden = true;
+      renderPlaylist();
+      DOM.playlistSearch.blur();
+    }
+    return;
+  }
+
+  // Prevent double-activation if button is already focused and Space/Enter is pressed
+  if (activeElement && activeElement.tagName === 'BUTTON' && (e.key === ' ' || e.key === 'Enter')) {
+    return;
+  }
 
   switch (e.key) {
     case ' ': // Space: Play / Pause
@@ -1073,12 +1447,12 @@ function handleGlobalKeydown(e) {
 
     case 'ArrowUp': // Arrow Up: Volume Up (+5%)
       e.preventDefault();
-      setVolume(DOM.audio.volume + 0.05);
+      setVolume((state.isMuted ? state.previousVolume : DOM.audio.volume) + 0.05);
       break;
 
     case 'ArrowDown': // Arrow Down: Volume Down (-5%)
       e.preventDefault();
-      setVolume(DOM.audio.volume - 0.05);
+      setVolume((state.isMuted ? state.previousVolume : DOM.audio.volume) - 0.05);
       break;
 
     case 'm':
@@ -1108,6 +1482,7 @@ function handleGlobalKeydown(e) {
     case 'Escape': // Escape: Close modal or notification
       DOM.shortcutsModal.setAttribute('hidden', '');
       hideNotification();
+      if (DOM.shortcutsBtn) DOM.shortcutsBtn.focus();
       break;
 
     default:
@@ -1122,14 +1497,18 @@ document.addEventListener('DOMContentLoaded', () => {
   initTheme();
   bindEventListeners();
 
-  // Set initial volume
+  // Set initial volume & repeat UI
   setVolume(state.volume);
+  syncRepeatUI();
 
-  // Load first track (index 0) without autoplay
+  // Update initial hero counts
+  updateArchiveCount();
+
+  // Load first track without autoplay
   loadTrack(0, false);
 
-  // Render playlist
+  // Render initial catalogue
   renderPlaylist();
 
-  console.info('Between the Frames — Music Player initialized successfully.');
+  console.info('Between the Frames — Digital Listening Archive initialized successfully.');
 });
